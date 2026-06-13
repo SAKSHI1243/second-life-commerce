@@ -1,0 +1,9 @@
+# Python temporary files
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Environment variables / Secrets (Safe keeping)
+.env
+venv/
+.venv/
