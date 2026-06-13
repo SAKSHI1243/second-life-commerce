@@ -1,6 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
-import schemas # Import the file we made above
+import schemas 
+import database  
 
 app = FastAPI(title="Second Life Commerce Backend Engine")
 
