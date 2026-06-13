@@ -203,8 +203,8 @@ async def calculate_co2_impact(product_id: str):
     target = next((p for p in products if p["product_id"] == product_id), None)
     score = target.get("calculated_score", 72) if target else 72
     action = target.get("final_action", "resell") if target else "resell"
-    
-    kg_saved = round(80.0 * (score / 100.0) * 0.85, 2)
+    multiplier= 1.25 if action =="resell" else 0.85
+    kg_saved = round(score * multiplier, 2)
     car_km = round(kg_saved * 4.9, 2)
     return {
         "product_id": product_id,
