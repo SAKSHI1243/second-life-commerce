@@ -1,18 +1,20 @@
+# main.py
 from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-import schemas
-import database
+import httpx
+import json
 import os
 import shutil
+import schemas
+import database
+import ai_agent  # <--- 🔥 Linked dynamic proxy controller module!
 
 app = FastAPI(title="Second Life Circular Economy Engine")
 
-# Day 1 Requirement: Ensure dynamic assets upload folder directory exists
 UPLOAD_DIR = "uploaded_photos"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
-# Mount directory so Frontend can access the uploaded images directly for canvas overlays
 app.mount("/static", StaticFiles(directory=UPLOAD_DIR), name="static")
 
 app.add_middleware(
@@ -24,81 +26,78 @@ app.add_middleware(
 )
 
 TEMP_FLOW_STORE = {}
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "YOUR_BACKUP_HACKATHON_API_KEY")
+MODEL_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent"
+
+def ask_gemini(prompt_text: str):
+    url = f"{MODEL_URL}?key={GEMINI_API_KEY}"
+    payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
+    with httpx.Client(verify=False, timeout=30.0) as client:
+        response = client.post(url, json=payload)
+    result = response.json()
+    if "candidates" not in result:
+        return None
+    return result["candidates"][0]["content"]["parts"][0]["text"]
 
 @app.post("/api/upload")
 async def upload_photo(file: UploadFile = File(...)):
+    file_path = os.path.join(UPLOAD_DIR, file.filename)
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    return {"message": "File successfully uploaded", "image_url": f"/static/{file.filename}"}
+
+@app.post("/api/grade", response_model=schemas.GradeResponse)
+async def grade_product(file: UploadFile = File(...)):
     """
-    P1 Feature: File handling node pipeline. 
-    Saves image locally and returns static asset road mapping path.
+    P1 Feature: AI Image Quality Check & Condition Grader.
+    Executes real-time inference loop directly using multi-modal partner engine wrapper.
     """
     file_path = os.path.join(UPLOAD_DIR, file.filename)
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
     
-    return {"message": "File successfully uploaded", "image_url": f"/static/{file.filename}"}
-
-
-@app.post("/api/grade", response_model=schemas.GradeResponse)
-async def grade_product(file: UploadFile = File(...)):
-    """
-    P1 Feature: AI Image Quality Check & Condition Grader Simulation.
-    Provides pixel coordinate matrices for enterprise damage annotation overlays.
-    """
-    # Emulating Gemini Quality Guardrail Filter
-    mock_output = {
-        "quality": {
-            "is_acceptable": True,
-            "lighting_check": "Pass",
-            "blur_check": "Pass"
-        },
-        "grade": "Good",
-        "confidence": 0.88, # 88% confidence level score
-        "damage_list": ["minor scratch near bottom speaker grill"],
-        "damage_locations": [
-            {
-                "box_2d": [750, 200, 890, 600], # [ymin, xmin, ymax, xmax] layout coordinates
-                "label": "surface_scratch"
-            }
-        ]
-    }
+    # 🔥 BRIDGE INTERCEPTOR: Execute the real multi-modal evaluation logic metrics
+    real_ai_output = ai_agent.full_image_analysis(file_path)
     
-    # Persistent pipeline handshaking tracker
-    TEMP_FLOW_STORE["current_grade"] = mock_output["grade"]
-    TEMP_FLOW_STORE["current_confidence"] = mock_output["confidence"]
-    return mock_output
+    # Safe validation check if live connection is failing
+    if real_ai_output is None:
+        raise HTTPException(status_code=502, detail="Upstream AI execution framework parsing timeout error.")
 
+    # Persistent operational flow handshaking state parameters tracking registers
+    TEMP_FLOW_STORE["current_grade"] = real_ai_output["grade"]
+    TEMP_FLOW_STORE["current_confidence"] = real_ai_output["confidence"]
+    TEMP_FLOW_STORE["current_damage_list"] = real_ai_output["damage_list"]
+    
+    return real_ai_output
 
 @app.post("/api/questionnaire", response_model=schemas.QuestionnaireResponse)
 async def get_questions(grade_data: schemas.GradeResponse):
     """
-    P1 Dynamic Questionnaire: Contextual mutation matrix based on vision tags.
+    P1 Dynamic Questionnaire: Invokes real-time contextual targeted query arrays from Gemini.
     """
+    # Partner Prompt Logic integration hook
+    prompt = f"""Based on product grade: {grade_data.grade} and damage list: {grade_data.damage_list},
+    generate 3-5 targeted follow-up questions specific to the damage found.
+    Return JSON strictly inside this structural framework schema format, no extra text:
+    {{"questions": [{{"id": "touch_ok", "question": "Is the screen functional?", "type": "radio", "options": [{{"id": "yes", "text": "Yes"}}, {{"id": "no", "text": "No"}}]}}]}}"""
+    
+    raw_reply = ask_gemini(prompt)
+    if raw_reply:
+        try:
+            parsed_questions = ai_agent.safe_parse_json(raw_reply)
+            return parsed_questions
+        except Exception:
+            pass # Continues execution routing fallback to protect backend system breaks
+            
+    # Fallback to structural logic configuration matrix safely if prompt token blocks drop
     if grade_data.grade == "Poor":
-        questions = [
-            {
-                "id": "device_boots", 
-                "question": "Does the device even turn on or show a boot loop?", 
-                "type": "radio",
-                "options": [{"id": "yes", "text": "Yes, it boots"}, {"id": "no", "text": "No, completely dead"}]
-            }
-        ]
+        questions = [{"id": "device_boots", "question": "Does the device even turn on or show a boot loop?", "type": "radio", "options": [{"id": "yes", "text": "Yes, it boots"}, {"id": "no", "text": "No, completely dead"}]}]
     else:
         questions = [
-            {
-                "id": "touch_ok", 
-                "question": "Is the screen touch working uniformly across the panel?", 
-                "type": "radio",
-                "options": [{"id": "yes", "text": "Yes, fully functional"}, {"id": "no", "text": "No, dead zones"}]
-            },
-            {
-                "id": "battery_issue", 
-                "question": "Is there any visible expansion or battery swelling?", 
-                "type": "radio",
-                "options": [{"id": "yes", "text": "Yes, looks swollen"}, {"id": "no", "text": "No, flat back"}]
-            }
+            {"id": "touch_ok", "question": "Is the screen touch working uniformly across the panel?", "type": "radio", "options": [{"id": "yes", "text": "Yes, fully functional"}, {"id": "no", "text": "No, dead zones"}]},
+            {"id": "battery_issue", "question": "Is there any visible expansion or battery swelling?", "type": "radio", "options": [{"id": "yes", "text": "Yes, looks swollen"}, {"id": "no", "text": "No, flat back"}]}
         ]
     return {"questions": questions}
-
 
 @app.post("/api/route-product", response_model=schemas.RoutingDecisionResponse)
 async def route_product(user_answers: schemas.UserAnswers):
@@ -108,10 +107,24 @@ async def route_product(user_answers: schemas.UserAnswers):
     """
     ai_grade = TEMP_FLOW_STORE.get("current_grade", "Good")
     ai_confidence = TEMP_FLOW_STORE.get("current_confidence", 0.85)
+    damage_list = TEMP_FLOW_STORE.get("current_damage_list", [])
     
+    # Partner Decision Vector override prompt sequence matrix tracking
+    prompt = f"Product: Device. Grade: {ai_grade}. Damage: {damage_list}. Seller answers: {user_answers.answers}. Determine best destination choice matrix. Return JSON only, no extra text: {{\"decision\": \"resell\", \"reason\": \"explanation\"}} Decision selection must map one of: resell, refurbish, donate, recycle"
+    
+    action, reason = "resell", "Asset qualifies for circular marketplace reselling channels."
+    raw_decision = ask_gemini(prompt)
+    if raw_decision:
+        try:
+            parsed_decision = ai_agent.safe_parse_json(raw_decision)
+            action = parsed_decision.get("decision", "resell").lower()
+            reason = parsed_decision.get("reason", reason)
+        except Exception:
+            pass
+
+    # Mathematical weights verification framework algorithm
     grade_weights = {"Good": 60, "Fair": 40, "Poor": 20}
     base_score = grade_weights.get(ai_grade, 40)
-    
     penalty = 0
     answers = user_answers.answers
     if answers.get("touch_ok") == "no" or answers.get("device_boots") == "no":
@@ -120,37 +133,17 @@ async def route_product(user_answers: schemas.UserAnswers):
         penalty += 40
         
     final_score = max(0, base_score + 40 - penalty)
+    points_map = {"resell": 200, "refurbish": 150, "donate": 100, "recycle": 50}
+    reward_points = points_map.get(action, 50)
     
-    # Rule Matrix assignment logic
-    if final_score >= 75:
-        action = "resell"
-        reward_points = 200
-        reason = "Asset hardware structural integrity qualifies for active refurbished reselling streams."
-        alt_route = None
-    elif final_score >= 50:
-        action = "refurbish"
-        reward_points = 150
-        reason = "Device demonstrates light functional anomaly. Routed for diagnostic component optimization."
-        alt_route = None
-    elif final_score >= 35:
-        action = "donate"
-        reward_points = 100
-        reason = "Cosmetic scaling metrics indicate maximum utility via non-profit social good channels."
-        alt_route = None
-    else:
-        action = "recycle"
-        reward_points = 50
-        reason = "Severe chemical component hazard threshold breached. Automated sorting to landfill mitigation loops."
-        alt_route = {
-            "facility_name": "Eco-Green E-Waste Hub",
-            "distance_km": 4.2,
-            "instructions": "Drop asset inside kiosk bay locator."
-        }
+    alt_route = None
+    if action == "recycle":
+        alt_route = {"facility_name": "Eco-Green E-Waste Hub", "distance_km": 4.2, "instructions": "Drop asset inside kiosk bay locator."}
 
     # P3 Accountability check: flag if AI confidence is low (< 0.70)
     is_flagged = ai_confidence < 0.70
 
-    # Persist results state to JSON
+    # Persistent transactional databases updates mapping modules
     products = database.read_json(database.PRODUCTS_DB)
     new_product_id = f"PROD_{len(products) + 1001}"
     products.append({
@@ -163,7 +156,6 @@ async def route_product(user_answers: schemas.UserAnswers):
     })
     database.write_json(database.PRODUCTS_DB, products)
     
-    # Process wallet state balances
     sellers = database.read_json(database.SELLERS_DB)
     target_user = "user_sakshi"
     if target_user in sellers:
@@ -180,21 +172,31 @@ async def route_product(user_answers: schemas.UserAnswers):
         "alternative_route": alt_route
     }
 
-
-# --- Day 2 Feature Requirements Modules ---
-
 @app.post("/api/regret-predict", response_model=schemas.RegretResponse)
 async def api_predict_return_regret(payload: schemas.RegretRequest):
     """P2 Unique Wow Factor: Behavioral Return Regret Logic."""
+    # 🔥 PARTNER'S COGNITIVE INTENT PROMPT TUNING EXECUTION NODE INJECTED!
+    prompt = f"Buyer wants to return item, reason given: '{payload.return_reason}'. Analyze return request. Return JSON framework structure only, no extra markdown text tags: {{\n\"regret_probability\": 72, \"insight_message\": \"one sentence tracking insight\"\n}}"
+    
+    raw_reply = ask_gemini(prompt)
+    if raw_reply:
+        try:
+            parsed_regret = ai_agent.safe_parse_json(raw_reply)
+            # Realign keys if partner structured variations differently
+            return {
+                "regret_probability": float(parsed_regret.get("regret_probability", 72.0)),
+                "insight_message": parsed_regret.get("insight_message", parsed_regret.get("insight", "Cognitive preference mismatch check flag."))
+            }
+        except Exception:
+            pass
+
+    # Static fallback logic check route mapping to preserve uptime layers
     reason = payload.return_reason.lower()
     if "buyer" in reason or "regret" in reason or "impulsive" in reason or "heavy" in reason:
         prob, insight = 87.5, "High impulse cognitive dissonance tracking signature. Offer immediate green voucher."
-    elif "defective" in reason or "broken" in reason:
-        prob, insight = 11.0, "Verified objective technical failure. Process directly without retention blocks."
     else:
         prob, insight = 54.0, "Standard preference drift loop. Standard inventory reallocation route rules applied."
     return {"regret_probability": prob, "insight_message": insight}
-
 
 @app.post("/api/co2-impact", response_model=schemas.CO2ImpactResponse)
 async def calculate_co2_impact(product_id: str):
@@ -203,9 +205,11 @@ async def calculate_co2_impact(product_id: str):
     target = next((p for p in products if p["product_id"] == product_id), None)
     score = target.get("calculated_score", 72) if target else 72
     action = target.get("final_action", "resell") if target else "resell"
-    multiplier= 1.25 if action =="resell" else 0.85
+    
+    multiplier = 1.25 if action == "resell" else 0.85
     kg_saved = round(score * multiplier, 2)
     car_km = round(kg_saved * 4.9, 2)
+    
     return {
         "product_id": product_id,
         "kg_co2_saved": kg_saved,
@@ -213,21 +217,16 @@ async def calculate_co2_impact(product_id: str):
         "insight_text": f"By selecting {action.upper()}, you saved {kg_saved}kg of CO2, offsetting a {car_km}km vehicle trip!"
     }
 
-
 @app.get("/api/listings", response_model=schemas.ListingsResponse)
 async def get_marketplace_listings():
-    """P2 Second-Hand Circular Marketplace Feed Module."""
     products = database.read_json(database.PRODUCTS_DB)
     if not products:
         products = [{"product_id": "PROD_1001", "ai_grade": "Good", "calculated_score": 78, "final_action": "resell", "allocated_points": 200}]
-    
     listings = [item for item in products if item.get("final_action") != "recycle"]
     return {"listings": listings}
 
-
 @app.get("/api/admin/review", response_model=schemas.AdminQueueResponse)
 async def get_admin_review_queue():
-    """P3 Admin Safety Net Verification Interface Ledger System."""
     products = database.read_json(database.PRODUCTS_DB)
     flagged = [
         {"product_id": item["product_id"], "ai_grade": item["ai_grade"], "calculated_score": int(item["calculated_score"]), "status": "flagged_for_review"}
@@ -237,10 +236,8 @@ async def get_admin_review_queue():
         flagged = [{"product_id": "PROD_9999_SUSPECT", "ai_grade": "Poor", "calculated_score": 28, "status": "flagged_for_review"}]
     return {"flagged_items": flagged}
 
-
 @app.post("/api/green-points/redeem", response_model=schemas.RedeemResponse)
 async def redeem_green_points(payload: schemas.RedeemRequest):
-    """P1 Core Engine Hook: Loyalty Ledger Voucher Minting Gateway."""
     sellers = database.read_json(database.SELLERS_DB)
     user = "user_sakshi"
     if sellers[user]["green_points"] < payload.points_to_redeem:
