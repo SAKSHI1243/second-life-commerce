@@ -11,6 +11,9 @@ from pydantic import BaseModel
 import schemas
 import database
 import ai_agent
+from dotenv import load_dotenv
+load_dotenv()  # Load environment variables from .env file, including GEMINI_API_KEY
+
 
 app = FastAPI(title="Second Life Circular Economy Engine")
 
@@ -29,11 +32,13 @@ app.add_middleware(
 # Shared Memory Registers for State Management Across Steps
 TEMP_FLOW_STORE = {}
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "YOUR_BACKUP_HACKATHON_API_KEY")
-MODEL_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent"
+
+# 👈 HIGHLIGHT: Model upgraded to 1.5-pro for high-volume free tier allowance
+MODEL_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent"
 
 def ask_gemini(prompt_text: str):
     # Restrict to standard v1beta or stable endpoint depending on key criteria
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+    url = f"{MODEL_URL}?key={GEMINI_API_KEY}"
     
     payload = {
         "contents": [{"parts": [{"text": prompt_text}]}],
@@ -48,13 +53,17 @@ def ask_gemini(prompt_text: str):
         raw_text = result["candidates"][0]["content"]["parts"][0]["text"].strip()
         
         # Super-safe cleaning mechanism just in case markdown blocks leak out
+        # 👈 HIGHLIGHT: Advanced extraction handling to prevent string-to-json parse crash
         if raw_text.startswith("```"):
-            raw_text = raw_text.split("```json")[-1].split("```")[0].strip()
-            
+            if "```json" in raw_text:
+                raw_text = raw_text.split("```json")[-1].split("```")[0].strip()
+            else:
+                raw_text = raw_text.split("```")[-1].split("```")[0].strip()
         return raw_text
-    except Exception as e:
+
+    except Exception as e:  
         print(f"[GEMINI CONNECTION WARNING]: {str(e)}")
-        return None
+        return None        
 
 @app.post("/api/upload")
 async def upload_photo(file: UploadFile = File(...)):
