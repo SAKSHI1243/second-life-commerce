@@ -56,7 +56,7 @@ async def grade_product(file: UploadFile = File(...)):
     P1 Feature: REAL Gemini Image Quality Check & Condition Grader integration.
     """
     try:
-        # 1. Frontend se aayi file ko temporary save karo taaki Member A ka function use read kar sake
+    
         file_path = os.path.join(UPLOAD_DIR, file.filename)
         with open(file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -72,12 +72,12 @@ async def grade_product(file: UploadFile = File(...)):
             raise HTTPException(status_code=500, detail="Gemini analysis returned None response context.")
 
         # 4. Normalize outputs to match Member B strict schema constraints
-        # Agar unka model 'Like New' return karta hai, use 'Good' par map kar do safety ke liye
+        
         current_grade = ai_data.get("grade", "Good")
         if current_grade == "Like New":
             current_grade = "Good"
             
-        # Confidence score normalize check (agar unhone float ki jagah percentage 85 bheja toh use 0.85 karo)
+        # Confidence score normalize check
         confidence_val = ai_data.get("confidence", 0.85)
         if confidence_val > 1.0:
             confidence_val = confidence_val / 100.0
@@ -93,6 +93,7 @@ async def grade_product(file: UploadFile = File(...)):
                 "lighting_check": "Pass" if ai_data.get("quality_ok", True) else "Fail",
                 "blur_check": "Pass" if ai_data.get("quality_ok", True) else "Fail"
             },
+            "category": ai_data.get("category", "Electronics"), # <--- 🔥 Injected for schema tracking safety!
             "grade": current_grade,
             "confidence": confidence_val,
             "damage_list": ai_data.get("damage_list", []),
@@ -134,7 +135,15 @@ async def get_questions(grade_data: schemas.GradeResponse):
             pass # Continues execution routing fallback to protect backend system breaks
             
     # Category-Aware Fallback logic configuration matrix safely if prompt token blocks drop
-    category = grade_data.category.lower()
+    # Matrix safe handling code block update
+    category = "electronics"
+    if hasattr(grade_data, 'category') and grade_data.category:
+        category = grade_data.category.lower()
+    elif isinstance(grade_data, dict) and "category" in grade_data:
+        category = grade_data["category"].lower()
+    else:
+        # Fallback tracking safely from session store matrix
+        category = TEMP_FLOW_STORE.get("current_category", "electronics").lower()
     if "footwear" in category or "shoe" in category:
         questions = [
             {"id": "sole_intact", "question": "Is the sole firmly attached with no separation?", "type": "radio", "options": [{"id": "yes", "text": "Yes, intact"}, {"id": "no", "text": "No, peeling"}]},
