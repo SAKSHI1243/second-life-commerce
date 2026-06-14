@@ -32,14 +32,28 @@ GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "YOUR_BACKUP_HACKATHON_API_KEY")
 MODEL_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash:generateContent"
 
 def ask_gemini(prompt_text: str):
-    url = f"{MODEL_URL}?key={GEMINI_API_KEY}"
-    payload = {"contents": [{"parts": [{"text": prompt_text}]}]}
+    # Restrict to standard v1beta or stable endpoint depending on key criteria
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={GEMINI_API_KEY}"
+    
+    payload = {
+        "contents": [{"parts": [{"text": prompt_text}]}],
+        "generationConfig": {
+            "responseMimeType": "application/json"  # 🔥 Forces Gemini to reply in pure JSON without markdown markdown wraps!
+        }
+    }
     try:
-        with httpx.Client(verify=False, timeout=10.0) as client:
+        with httpx.Client(verify=False, timeout=12.0) as client:
             response = client.post(url, json=payload)
         result = response.json()
-        return result["candidates"][0]["content"]["parts"][0]["text"]
-    except Exception:
+        raw_text = result["candidates"][0]["content"]["parts"][0]["text"].strip()
+        
+        # Super-safe cleaning mechanism just in case markdown blocks leak out
+        if raw_text.startswith("```"):
+            raw_text = raw_text.split("```json")[-1].split("```")[0].strip()
+            
+        return raw_text
+    except Exception as e:
+        print(f"[GEMINI CONNECTION WARNING]: {str(e)}")
         return None
 
 @app.post("/api/upload")
