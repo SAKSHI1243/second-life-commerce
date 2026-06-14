@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Optional
+from typing import List, Optional, Dict
 
 # --- Day 1: Vision & Quality Filter Contracts ---
 class ImageQuality(BaseModel):
@@ -12,6 +12,7 @@ class DamageLocation(BaseModel):
     label: str
 
 class GradeResponse(BaseModel):
+    session_id: str      # 🔥 INJECTED: Cross-user session tracing schema patch
     quality: ImageQuality
     category: str         # "Electronics", "Footwear", "Apparel", etc.
     grade: str            # "Good", "Fair", "Poor"
@@ -34,7 +35,9 @@ class QuestionnaireResponse(BaseModel):
     questions: List[Question]
 
 class UserAnswers(BaseModel):
-    answers: dict
+    session_id: str      # 🔥 INJECTED: Frontend updates previous session ID tag here
+    username: Optional[str] = "guest_user" # 🔥 Dynamic identification over-ride
+    answers: Dict[str, str]
 
 class RoutingDecisionResponse(BaseModel):
     decision: str         # "resell", "refurbish", "donate", "recycle"
@@ -42,7 +45,7 @@ class RoutingDecisionResponse(BaseModel):
     second_life_score: float
     green_points_earned: int
     flagged_for_review: bool # High accountability system threshold
-    alternative_route: Optional[dict] = None
+    alternative_route: Optional[Dict[str, any]] = None
 
 # --- Day 2: Advanced Features Contracts ---
 class RegretRequest(BaseModel):
@@ -77,6 +80,7 @@ class ReviewItem(BaseModel):
 
 class AdminQueueResponse(BaseModel):
     flagged_items: List[ReviewItem] 
+
 # --- Day 2: Loyalty Point Redemption Contracts ---
 class RedeemRequest(BaseModel):
     user_id: str
@@ -86,4 +90,4 @@ class RedeemResponse(BaseModel):
     success: bool
     coupon_code: str
     discount_amount_inr: float
-    remaining_points: int    
+    remaining_points: int
