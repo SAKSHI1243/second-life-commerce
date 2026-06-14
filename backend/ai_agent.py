@@ -3,6 +3,9 @@ import httpx
 import json
 import base64
 import os
+from dotenv import load_dotenv
+
+load_dotenv() # Load GEMINI_API_KEY from .env
 
 # Secure api credential registers handling
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "YOUR_BACKUP_HACKATHON_API_KEY")
@@ -53,10 +56,20 @@ def check_image_quality(image_path):
 
 def grade_product_image(image_path):
     prompt = """Analyse this product image for resale condition grading.
-    Identify: visible damage, scratches, dents, packaging condition, missing parts, overall wear.
+    1) Identify the product CATEGORY (e.g., Electronics, Footwear, Apparel, Home).
+    2) Identify visible damage, scratches, dents, packaging condition, missing parts, overall wear.
     Return JSON only, no extra text:
-    {"grade": "Good", "damage_list": [], "confidence": 85, "damage_locations": []}
-    Grade must be one of: Like New, Good, Fair, Poor"""
+    {
+        "category": "Footwear",
+        "grade": "Good", 
+        "damage_list": ["scratch on screen"], 
+        "confidence": 0.85, 
+        "damage_locations": [
+            {"box_2d": [ymin, xmin, ymax, xmax], "label": "damage_type"}
+        ]
+    }
+    Grade must be one of: Like New, Good, Fair, Poor.
+    Coordinates for box_2d must be normalized (0-1000) where [0,0,1000,1000] is the full image."""
     result = ask_gemini_with_image(prompt, image_path)
     if result is None:
         return None
@@ -68,7 +81,7 @@ def full_image_analysis(image_path):
     if quality is None:
         return None
     if not quality.get("quality_ok"):
-        return {"quality_ok": False, "grade": "Poor", "confidence": 0, "damage_list": quality.get("issues", [])}
+        return {"quality_ok": False, "category": "Unknown", "grade": "Poor", "confidence": 0, "damage_list": quality.get("issues", [])}
     
     grade_result = grade_product_image(image_path)
     if grade_result is None:
