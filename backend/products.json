@@ -1,1 +1,34 @@
-[]
+[
+    {
+        "product_id": "PROD_1001",
+        "ai_grade": "Poor",
+        "calculated_score": 60,
+        "final_action": "recycle",
+        "allocated_points": 50,
+        "review_status": "verified"
+    },
+    {
+        "product_id": "PROD_1002",
+        "ai_grade": "Poor",
+        "calculated_score": 60,
+        "final_action": "resell",
+        "allocated_points": 200,
+        "review_status": "verified"
+    },
+    {
+        "product_id": "PROD_1003",
+        "ai_grade": "Like New",
+        "calculated_score": 80,
+        "final_action": "refurbish",
+        "allocated_points": 150,
+        "review_status": "verified"
+    },
+    {
+        "product_id": "PROD_1004",
+        "ai_grade": "Good",
+        "calculated_score": 100,
+        "final_action": "resell",
+        "allocated_points": 200,
+        "review_status": "verified"
+    }
+]
