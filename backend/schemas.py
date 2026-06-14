@@ -13,6 +13,7 @@ class DamageLocation(BaseModel):
 
 class GradeResponse(BaseModel):
     quality: ImageQuality
+    category: str         # "Electronics", "Footwear", "Apparel", etc.
     grade: str            # "Good", "Fair", "Poor"
     damage_list: List[str]
     confidence: float     # e.g., 0.85 (85%)

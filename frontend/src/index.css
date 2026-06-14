@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+@theme {
+  --color-amazon-dark: #131921;
+  --color-amazon-light: #232F3E;
+  --color-amazon-orange: #FF9900;
+  --color-amazon-yellow: #FFD814;
+  --color-amazon-yellow-hover: #F7CA00;
+  --color-amazon-text: #0F1111;
+  --color-amazon-muted: #565959;
+  --color-amazon-border: #D5D9D9;
+  --color-amazon-bg: #F2F4F8;
+  --color-amazon-green: #007600;
+  --color-amazon-red: #B12704;
+}
+
+body {
+  background-color: var(--color-amazon-bg);
+  color: var(--color-amazon-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+}
+
+@layer components {
+  .amazon-link {
+    @apply text-[#007185] hover:text-[#C7511F] hover:underline cursor-pointer transition-colors;
+  }
+}
